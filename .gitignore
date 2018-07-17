@@ -1,3 +1,9 @@
+# compiled python
+*.pyc
+
+# derived by ROOT
+*.pcm
+
 # Prerequisites
 *.d
 

@@ -214,8 +214,9 @@ class PhDAnalyzier():
         self.npe = -log(nPed/self.hPhD.GetEntries()) + log(nDarkPed/nDarkTot)
         return self.npe
 
-    def GetPDE(self,pulser):
-        return self.npe/pulser.muGamma
+    # A fairly trivial method.  All the work is done above
+    def GetPDE(self,muGamma):
+        return self.npe/muGamma
 
     def GetNoise(self):
         return npefcn.GetParameter("sig0")
@@ -223,10 +224,10 @@ class PhDAnalyzier():
         return npefcn.GetParameter("enf")
     def GetGain(self):
         return npefcn.GetParameter("gain")
-
     
 
 if __name__ == "__main__":
+    tf_out=TFile("pdeTest.root","recreate")
     pulser=LightSource()
     s=SIPM()
     s.dcr=2
@@ -255,9 +256,11 @@ if __name__ == "__main__":
 
     s.Print()
 
-    print "Calculated PDE =",'{0:.1f}%'.format(ana.GetPDE(pulser)*100)
+    print "Calculated PDE =",'{0:.1f}%'.format(ana.GetPDE(pulser.muGamma)*100)
     print "Calculated noise =",'{0:.2f}'.format(ana.GetNoise())
     print "Calculated ENF =",'{0:.2f}'.format(ana.GetENF())
     print "Calculated Gain =",'{0:.2f}'.format(ana.GetGain())
-    
+
+    tf_out.Write()
+    tf_out.Close()
     raw_input("Press Enter to continue...")

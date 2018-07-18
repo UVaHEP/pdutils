@@ -153,13 +153,19 @@ class PhDAnalyzier():
         self.hPhD0.Fit("gaus","","",xmin,xmax)
         
     def FindPeaks(self):
-        hfft=self.hPhD.FFT(0,"RE")
-        hfft.SetBinContent(1,0)  # suppress DC component
-        max=hfft.GetMaximumBin()
-        if max>hfft.GetNbinsX()/2: max = hfft.GetNbinsX()-max
+        self.hfft=self.hPhD.FFT(0,"RE")
+        self.hfft.SetBinContent(1,0)  # suppress DC component
+        self.hfft.SetBinContent(2,0)
+        self.hfft.SetBinContent(self.hfft.GetNbinsX(),0)
+        self.hfft.SetBinContent(self.hfft.GetNbinsX()-1,0)
+        max=self.hfft.GetMaximumBin()
+        if max>self.hfft.GetNbinsX()/2: max = self.hfft.GetNbinsX()-max
         self.peakWid=(self.hPhD.GetNbinsX()/max)/4  # est. peak distance / 4 in Nbins
-        self.peakWid=max/4  # est. peak distance / 4 in Nbins
+        self.peakWid=max/4.0  # est. peak distance / 4 in Nbins
+        print max
         print "peakwid",self.peakWid
+        #self.hfft.Draw("hist")
+        #raw_input("Press Enter to continue...")
         self.npeaks=self.ts.Search(self.hPhD,self.peakWid)
         print "found",self.npeaks,"peaks"
         xvals=self.ts.GetPositionX()
@@ -202,7 +208,7 @@ class PhDAnalyzier():
         A=fcn.GetParameter(0)
         mu=fcn.GetParameter(1)
         self.noise=fcn.GetParameter(2)
-        nPed=A/self.hPhD.GetBinWidth(1) * sqrt(2*pi) * self.noise
+        self.nPed=A/self.hPhD.GetBinWidth(1) * sqrt(2*pi) * self.noise
         nDarkPed=1
         nDarkTot=1
         if self.hPhD0:
@@ -212,8 +218,9 @@ class PhDAnalyzier():
             mu=fcn.GetParameter(1)
             noise=fcn.GetParameter(2)
             nDarkPed=A/self.hPhD0.GetBinWidth(1) * sqrt(2*pi) * noise
-            nDarkTot=self.hPhD0.GetEntries() 
-        self.npe = -log(nPed/self.hPhD.GetEntries()) + log(nDarkPed/nDarkTot)
+            #nDarkTot=self.hPhD0.GetEntries() # num. entries messed up in pulse code!
+            nDarkTot=self.hPhD0.Integral(1,self.hPhD0.GetNbinsX()) # use integral
+        self.npe = -log(self.nPed/self.hPhD.GetEntries()) + log(nDarkPed/nDarkTot)
         return self.npe
 
     # A fairly trivial method.  All the work is done above

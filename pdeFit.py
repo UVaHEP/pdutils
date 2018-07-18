@@ -19,7 +19,8 @@ raw_input("Press Enter to continue...")
 
 ana=PhDAnalyzier(hLight.Clone(),hDark.Clone())
 npe=ana.CalcNpe()
-ana.FitPhD()
+
+ana.FitPhD() # do a nice fit to the peaks
 
 screenY=TGClient.Instance().GetDisplayHeight()
 c1=TCanvas("results","results",int(screenY*.75),int(screenY*.35))
@@ -29,5 +30,7 @@ ana.hPhD.Draw()
 c1.cd(2)
 ana.hPhD0.Draw()
 
+
+print "Mean NPE detectected",npe
 
 raw_input("Press Enter to continue...")

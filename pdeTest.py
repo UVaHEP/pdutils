@@ -153,18 +153,20 @@ class PhDAnalyzier():
         self.hPhD0.Fit("gaus","","",xmin,xmax)
         
     def FindPeaks(self):
-        hfft=hPhD.FFT(0,"RE")
+        hfft=self.hPhD.FFT(0,"RE")
         hfft.SetBinContent(1,0)  # suppress DC component
         max=hfft.GetMaximumBin()
         if max>hfft.GetNbinsX()/2: max = hfft.GetNbinsX()-max
-        self.peakWid=(hPhD.GetNbinsX()/max)/4  # est. peak distance / 4 in Nbins
-        self.npeaks=self.ts.Search(hPhD,self.peakWid)
+        self.peakWid=(self.hPhD.GetNbinsX()/max)/4  # est. peak distance / 4 in Nbins
+        self.peakWid=max/4  # est. peak distance / 4 in Nbins
+        print "peakwid",self.peakWid
+        self.npeaks=self.ts.Search(self.hPhD,self.peakWid)
         print "found",self.npeaks,"peaks"
         xvals=self.ts.GetPositionX()
         yvals=self.ts.GetPositionY()
         for i in range(self.npeaks):
             self.xylist.append([xvals[i],yvals[i]])
-        self.xylist.sort()        
+        self.xylist.sort()
         return self.npeaks
 
     # warning must call Fit0Peak and FindPeaks first
@@ -235,8 +237,8 @@ if __name__ == "__main__":
     hLight=s.SimPhD(pulser,gate)
     hDark=s.SimDarkPhD(gate)
     ana=PhDAnalyzier(hLight,hDark)
-    npe=ana.CalcNpe()
-    ana.FitPhD()
+    npe=ana.CalcNpe() # depends only on the ratios of events in the 0 peak
+    ana.FitPhD()      # do a nice fit to the peaks
 
 
     screenY=TGClient.Instance().GetDisplayHeight()

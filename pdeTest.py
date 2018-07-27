@@ -212,6 +212,10 @@ class PhDAnalyzier():
         
     
     def CalcNpe(self):  # calculate average # of detected photons per pulse
+        # check for under/overflows
+        uflow=self.hPhD.GetBinContent(0)+self.hPhD.GetBinContent(0)
+        oflow=self.hPhD0.GetBinContent(self.hPhD0.GetNbinsX()+1)+self.hPhD.GetBinContent(self.hPhD.GetNbinsX()+1)
+        if uflow+oflow >0: print "*** Warning, under/over flow entries in pulse height histograms"
         npeaks=self.FindPeaks()
         zeropeak=(self.xyPeaks[0])[0]
         xmin=zeropeak-self.peakWid*self.hPhD.GetBinWidth(1)*1.5 # 1.5 is a hack!
@@ -231,8 +235,7 @@ class PhDAnalyzier():
             mu=fcn.GetParameter(1)
             noise=fcn.GetParameter(2)
             nDarkPed=A/self.hPhD0.GetBinWidth(1) * sqrt(2*pi) * noise
-            #nDarkTot=self.hPhD0.GetEntries() # num. entries messed up in pulse code!
-            nDarkTot=self.hPhD0.Integral(1,self.hPhD0.GetNbinsX()) # use integral
+            nDarkTot=self.hPhD0.Integral(1,self.hPhD0.GetNbinsX()) # histogram is weighted, us integral, not # entries
         self.npe = -log(self.nPed/self.hPhD.GetEntries()) + log(nDarkPed/nDarkTot)
         return self.npe
 

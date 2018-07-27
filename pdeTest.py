@@ -99,7 +99,7 @@ class SIPM():
             hDark.Fill(signal)
         return hDark
 
-
+# not used - TBD
 class PeakFitter():
     def __init__(self):
         code="""
@@ -136,7 +136,7 @@ class PhDAnalyzier():
         self.hPhD=hPhD
         self.ts=TSpectrum()
         self.hPhD0=hDark    # dark count pulse height distributions
-        self.xylist=[]
+        self.xyPeaks=[]
         
     # use this method for the dark pulse height distribution     
     def Fit0Peak(self):
@@ -149,7 +149,7 @@ class PhDAnalyzier():
                 sig=mu-self.hPhD0.GetBinCenter(ibin)
                 break
         xmin=self.hPhD0.GetBinCenter(1)
-        xmax=self.hPhD0.GetBinCenter(maxbin)+sig*1.5 # 1.5 is a hack!
+        xmax=self.hPhD0.GetBinCenter(maxbin)+sig*1.0 # 1.0 is a hack!
         self.hPhD0.Fit("gaus","","",xmin,xmax)
         
     def FindPeaks(self):
@@ -170,37 +170,50 @@ class PhDAnalyzier():
         print "found",self.npeaks,"peaks"
         xvals=self.ts.GetPositionX()
         yvals=self.ts.GetPositionY()
-        for i in range(self.npeaks):
-            self.xylist.append([xvals[i],yvals[i]])
-        self.xylist.sort()
+        for i in range(self.npeaks):  # store peaks as a list of 2 element lists
+            self.xyPeaks.append([xvals[i],yvals[i]])
+        self.xyPeaks.sort()
+        del self.xyPeaks[6:]   # limit analysis to first 6 peaks (including 0pe)
         return self.npeaks
 
     # warning must call Fit0Peak and FindPeaks first
     def FitPhD(self):
-        parnames=["nfit","a0","mu0","sig0","enf","gain"]
+        parnames=["nfit","a0","mu0","sig0","enf","gain"] # other names appended below
         gROOT.ProcessLine(".L PEFitter.C+")
-        npefcn.SetRange(self.hPhD.GetXaxis().GetXmin(),self.hPhD.GetXaxis().GetXmax())
+        xmin=self.hPhD.GetXaxis().GetXmin()
+        xmax=self.hPhD.GetXaxis().GetXmax()
+        npefcn.SetRange(xmin,xmax)
         npefcn.SetNpx(self.hPhD.GetNbinsX())
-        npePeaks=self.npeaks-1
+
+        npePeaks=len(self.xyPeaks)-1  # remove 0pe peak from count
         fcn0=self.hPhD0.GetFunction("gaus")
+        ymax=self.hPhD.GetMaximum()
+        mu0=fcn0.GetParameter(1)  # noise peak mean
+        sig0=fcn0.GetParameter(2)
+        gain=self.xyPeaks[1][0]-self.xyPeaks[0][0] # approx gain as dist btwn peak 1 and peak 0
+
         npefcn.FixParameter(0,npePeaks) # of peaks to fit 0=noise only, 1=noise+1pe, ....
-        npefcn.SetParameter(1,self.xylist[0][1]) # noise peak normalization
-        npefcn.SetParameter(2,fcn0.GetParameter(1)) # noise peak mean
-        npefcn.SetParameter(3,fcn0.GetParameter(2)) # noise peak width
-        npefcn.SetParameter(4,fcn0.GetParameter(2)) # enf -- starting guess
-        npefcn.SetParameter(5,self.xylist[1][0]-self.xylist[0][0]) # gain
+        npefcn.SetParameter(1,self.xyPeaks[0][1]) # noise peak normalization "a0"
+        npefcn.SetParLimits(1,0,ymax)
+        npefcn.SetParameter(2,mu0) 
+        npefcn.SetParameter(3,sig0/gain) # use noise peak width as fraction of gain
+        npefcn.SetParLimits(2,mu0-2*sig0,mu0+2*sig0)
+        npefcn.SetParameter(4,sig0/gain) # enf -- starting guess, again as fraction of gain
+        npefcn.SetParameter(5,gain) # gain approx, dist btwn peak1&0
         npefcn.Print()
         for i in range(npePeaks):
-            npefcn.SetParameter(6+i,self.xylist[1+i][1])
+            npefcn.SetParameter(6+i,self.xyPeaks[1+i][1]) # heights of peaks 1...n
+            npefcn.SetParLimits(6+i,0,ymax)
             parnames.append("a"+str(i+1))
         for i in range(len(parnames)): npefcn.SetParName(i,parnames[i])
-        for i in range(len(parnames),npefcn.GetNpar()): npefcn.FixParameter(i,0)
-        self.hPhD.Fit("npefcn")
+        for i in range(len(parnames),npefcn.GetNpar()): npefcn.FixParameter(i,0)  # unused parameters
+        xend = self.xyPeaks[-1][0]+sig0*1  # end of fit range
+        self.hPhD.Fit("npefcn","","",xmin,xend)
         
     
     def CalcNpe(self):  # calculate average # of detected photons per pulse
         npeaks=self.FindPeaks()
-        zeropeak=(self.xylist[0])[0]
+        zeropeak=(self.xyPeaks[0])[0]
         xmin=zeropeak-self.peakWid*self.hPhD.GetBinWidth(1)*1.5 # 1.5 is a hack!
         xmax=zeropeak+self.peakWid*self.hPhD.GetBinWidth(1)*1.5
         self.hPhD.Fit("gaus","","",xmin,xmax)

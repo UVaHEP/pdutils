@@ -23,7 +23,7 @@ npe=ana.CalcNpe()
 ana.FitPhD() # do a nice fit to the peaks
 
 screenY=TGClient.Instance().GetDisplayHeight()
-c1=TCanvas("results","results",int(screenY*.75),int(screenY*.35))
+c1=TCanvas("results","results",int(screenY*.75),int(screenY*.75))
 c1.Divide(1,2)
 c1.cd(1)
 ana.hPhD.Draw()

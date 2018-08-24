@@ -1,6 +1,7 @@
 #include "TMath.h"
 #include "TF1.h"
 #include "TH1.h"
+#include <iostream>
 
 
 
@@ -32,6 +33,6 @@ Double_t fcn(Double_t *xp, Double_t *par){
 
 
 // function x-range is set later in fitting code
-TF1 *tf_npefcn = new TF1("npefcn",fcn,0,10,20);
+TF1 *tf_npefcn = new TF1("npefcn",fcn,0,10,15);
 
 

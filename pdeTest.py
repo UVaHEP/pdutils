@@ -140,6 +140,7 @@ class PhDAnalyzier():
         
     # use this method for the dark pulse height distribution     
     def Fit0Peak(self):
+        if not self.hPhD0: return
         maxbin=self.hPhD0.GetMaximumBin()
         max=self.hPhD0.GetBinContent(maxbin)
         mu=self.hPhD0.GetBinCenter(maxbin)
@@ -151,7 +152,8 @@ class PhDAnalyzier():
         xmin=self.hPhD0.GetBinCenter(1)
         xmax=self.hPhD0.GetBinCenter(maxbin)+sig*1.0 # 1.0 is a hack!
         self.hPhD0.Fit("gaus","","",xmin,xmax)
-        
+
+
     def FindPeaks(self):
         self.hfft=self.hPhD.FFT(0,"RE")
         self.hfft.SetBinContent(1,0)  # suppress DC component
@@ -160,20 +162,42 @@ class PhDAnalyzier():
         self.hfft.SetBinContent(self.hfft.GetNbinsX()-1,0)
         max=self.hfft.GetMaximumBin()
         if max>self.hfft.GetNbinsX()/2: max = self.hfft.GetNbinsX()-max
-        self.peakWid=(self.hPhD.GetNbinsX()/max)/4  # est. peak distance / 4 in Nbins
-        self.peakWid=max/4.0  # est. peak distance / 4 in Nbins
-        print max
+        #print max
+        if self.hPhD0:
+            fcn=self.hPhD0.GetFunction("gaus")
+            self.peakWid=fcn.GetParameter(2)/self.hPhD0.GetBinWidth(1)
+            # for overlapping peaks, setting the search width smaller
+            # appears to help finding the peaks
+            self.peakWid=self.peakWid*0.75 
+        else:  # if dark spectrum is not available
+            self.peakWid=(self.hPhD.GetNbinsX()/max)/4  # est. peak distance / 4 in Nbins
+            self.peakWid=int(max/2.0)  # est. peak distance / 4 in Nbins       
         print "peakwid",self.peakWid
         #self.hfft.Draw("hist")
         #raw_input("Press Enter to continue...")
         self.npeaks=self.ts.Search(self.hPhD,self.peakWid)
-        print "found",self.npeaks,"peaks"
+
+        print "TSpectrum found",self.npeaks,"peaks"
         xvals=self.ts.GetPositionX()
         yvals=self.ts.GetPositionY()
         for i in range(self.npeaks):  # store peaks as a list of 2 element lists
             self.xyPeaks.append([xvals[i],yvals[i]])
         self.xyPeaks.sort()
         del self.xyPeaks[6:]   # limit analysis to first 6 peaks (including 0pe)
+        # check to see if the 0PE peak was found
+        if self.hPhD0:
+            fcn=self.hPhD0.GetFunction("gaus")
+            npe0mu=fcn.GetParameter(1)
+            npe0sig=fcn.GetParameter(2)
+            if abs(npe0mu-self.xyPeaks[0][0])>npe0sig:
+                print "Warning: Noise peak is missing, attempting to fix..."
+                xaxis=self.hPhD.GetXaxis()
+                npe0bin=xaxis.FindBin(npe0mu)
+                npe0y=self.hPhD.GetBinContent(npe0bin)
+                print self.xyPeaks
+                self.xyPeaks.insert(0,[npe0mu,npe0y])
+                print self.xyPeaks
+                self.npeaks=self.npeaks+1
         return self.npeaks
 
     # warning must call Fit0Peak and FindPeaks first
@@ -182,6 +206,7 @@ class PhDAnalyzier():
         gROOT.ProcessLine(".L PEFitter.C+")
         xmin=self.hPhD.GetXaxis().GetXmin()
         xmax=self.hPhD.GetXaxis().GetXmax()
+        #print "fcn min max",xmin,xmax
         npefcn.SetRange(xmin,xmax)
         npefcn.SetNpx(self.hPhD.GetNbinsX())
 
@@ -193,22 +218,31 @@ class PhDAnalyzier():
         gain=self.xyPeaks[1][0]-self.xyPeaks[0][0] # approx gain as dist btwn peak 1 and peak 0
 
         npefcn.FixParameter(0,npePeaks) # of peaks to fit 0=noise only, 1=noise+1pe, ....
-        npefcn.SetParameter(1,self.xyPeaks[0][1]) # noise peak normalization "a0"
+        npefcn.SetParameter(1,self.xyPeaks[0][1]*0) # noise peak normalization "a0"
         npefcn.SetParLimits(1,0,ymax)
         npefcn.SetParameter(2,mu0) 
         npefcn.SetParameter(3,sig0/gain) # use noise peak width as fraction of gain
         npefcn.SetParLimits(2,mu0-2*sig0,mu0+2*sig0)
         npefcn.SetParameter(4,sig0/gain) # enf -- starting guess, again as fraction of gain
         npefcn.SetParameter(5,gain) # gain approx, dist btwn peak1&0
-        npefcn.Print()
+        
         for i in range(npePeaks):
             npefcn.SetParameter(6+i,self.xyPeaks[1+i][1]) # heights of peaks 1...n
             npefcn.SetParLimits(6+i,0,ymax)
             parnames.append("a"+str(i+1))
+            #print "a"+str(i+1),self.xyPeaks[1+i][1]
         for i in range(len(parnames)): npefcn.SetParName(i,parnames[i])
         for i in range(len(parnames),npefcn.GetNpar()): npefcn.FixParameter(i,0)  # unused parameters
         xend = self.xyPeaks[-1][0]+sig0*1  # end of fit range
-        self.hPhD.Fit("npefcn","","",xmin,xend)
+        #c3=TCanvas()
+        #npefcn.Draw()
+        #raw_input("Press Enter to continue...")
+        self.hPhD.Fit("npefcn","","",xmin,xend)     
+        self.fcn0=TF1("fcn0","gaus",xmin,xmax)
+        self.fcn0.SetParameters(npefcn.GetParameter(1),npefcn.GetParameter(2),
+                                npefcn.GetParameter(3)*npefcn.GetParameter(5))
+        self.fcn0.SetRange(xmin,xmax)
+        self.fcn0.SetLineStyle(2)
         
     
     def CalcNpe(self):  # calculate average # of detected photons per pulse
@@ -216,6 +250,7 @@ class PhDAnalyzier():
         uflow=self.hPhD.GetBinContent(0)+self.hPhD.GetBinContent(0)
         oflow=self.hPhD0.GetBinContent(self.hPhD0.GetNbinsX()+1)+self.hPhD.GetBinContent(self.hPhD.GetNbinsX()+1)
         if uflow+oflow >0: print "*** Warning, under/over flow entries in pulse height histograms"
+        self.Fit0Peak()
         npeaks=self.FindPeaks()
         zeropeak=(self.xyPeaks[0])[0]
         xmin=zeropeak-self.peakWid*self.hPhD.GetBinWidth(1)*1.5 # 1.5 is a hack!
@@ -229,7 +264,6 @@ class PhDAnalyzier():
         nDarkPed=1
         nDarkTot=1
         if self.hPhD0:
-            self.Fit0Peak()
             fcn=self.hPhD0.GetFunction("gaus")
             A=fcn.GetParameter(0)
             mu=fcn.GetParameter(1)

@@ -1,6 +1,6 @@
 from ROOT import *
 from pdeTest import *
-import sys
+import sys, os
 
 
 if len(sys.argv)<2:
@@ -23,10 +23,12 @@ npe=ana.CalcNpe()
 ana.FitPhD() # do a nice fit to the peaks
 
 screenY=TGClient.Instance().GetDisplayHeight()
-c1=TCanvas("results","results",int(screenY*.75),int(screenY*.75))
+c1=TCanvas("results",os.path.basename(sys.argv[1]),int(screenY*.75),int(screenY*.75))
 c1.Divide(1,2)
 c1.cd(1)
 ana.hPhD.Draw()
+ana.fcn0.Draw("same")
+#ana.fcn0.Print()
 c1.cd(2)
 ana.hPhD0.Draw()
 

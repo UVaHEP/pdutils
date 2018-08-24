@@ -32,7 +32,8 @@ ana.fcn0.Draw("same")
 c1.cd(2)
 ana.hPhD0.Draw()
 
-
+print ""
+print "Picoscope range for gain normalization", tf.Get("hRange").GetBinContent(1),"mV"
 print "Mean NPE detectected",npe
 
 raw_input("Press Enter to continue...")

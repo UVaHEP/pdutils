@@ -146,9 +146,8 @@ class PhDAnalyzier():
         mu=self.hPhD0.GetBinCenter(maxbin)
         for ibin in range(maxbin-1,0,-1):
             y=self.hPhD0.GetBinContent(ibin)
-            if y<max/2:
-                sig=mu-self.hPhD0.GetBinCenter(ibin)
-                break
+            sig=mu-self.hPhD0.GetBinCenter(ibin)
+            if y<max/2: break
         xmin=self.hPhD0.GetBinCenter(1)
         xmax=self.hPhD0.GetBinCenter(maxbin)+sig*1.0 # 1.0 is a hack!
         self.hPhD0.Fit("gaus","","",xmin,xmax)
@@ -170,6 +169,7 @@ class PhDAnalyzier():
             # appears to help finding the peaks
             self.peakWid=self.peakWid*0.75 
         else:  # if dark spectrum is not available
+            print "Warning: dark spectrum not found"
             self.peakWid=(self.hPhD.GetNbinsX()/max)/4  # est. peak distance / 4 in Nbins
             self.peakWid=int(max/2.0)  # est. peak distance / 4 in Nbins       
         print "peakwid",self.peakWid
